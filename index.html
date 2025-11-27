@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chennai Renegades - Room Allocation</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -15,18 +17,24 @@
     <div id="root"></div>
     
     <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAJxVigazivKQ_bNK0cm9co1uuwUMY1aTY",
+            authDomain: "chennai-renegades-spinner.firebaseapp.com",
+            databaseURL: "https://chennai-renegades-spinner-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "chennai-renegades-spinner",
+            storageBucket: "chennai-renegades-spinner.firebasestorage.app",
+            messagingSenderId: "230742813290",
+            appId: "1:230742813290:web:decaa7cfca370020ec3813",
+            measurementId: "G-9TMV3F7LZD"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
         const { useState, useEffect } = React;
         const { createRoot } = ReactDOM;
-
-        const storage = {
-            get: (key) => {
-                const val = localStorage.getItem('shared_' + key);
-                return val ? JSON.parse(val) : null;
-            },
-            set: (key, value) => {
-                localStorage.setItem('shared_' + key, JSON.stringify(value));
-            }
-        };
 
         function App() {
             const [riders, setRiders] = useState([]);
@@ -42,11 +50,41 @@
                 five: { total: 2, allocated: [] }
             });
 
+            // Listen to Firebase changes
             useEffect(() => {
-                const saved = storage.get('riders') || Array.from({ length: 27 }, (_, i) => 'Rider ' + (i + 1));
-                const savedRooms = storage.get('rooms');
-                setRiders(saved);
-                if (savedRooms) setRooms(savedRooms);
+                const ridersRef = database.ref('riders');
+                const roomsRef = database.ref('rooms');
+
+                ridersRef.on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        setRiders(data);
+                    } else {
+                        const defaultRiders = Array.from({ length: 27 }, (_, i) => 'Rider ' + (i + 1));
+                        setRiders(defaultRiders);
+                        ridersRef.set(defaultRiders);
+                    }
+                });
+
+                roomsRef.on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        setRooms(data);
+                    } else {
+                        const defaultRooms = {
+                            single: { total: 3, allocated: [] },
+                            double: { total: 7, allocated: [] },
+                            five: { total: 2, allocated: [] }
+                        };
+                        setRooms(defaultRooms);
+                        roomsRef.set(defaultRooms);
+                    }
+                });
+
+                return () => {
+                    ridersRef.off();
+                    roomsRef.off();
+                };
             }, []);
 
             const roomTypes = [
@@ -86,14 +124,13 @@
                             const newRooms = { ...rooms };
                             newRooms[selected.type].allocated.push(currentRider);
 
-                            setRiders(newRiders);
-                            setRooms(newRooms);
+                            // Update Firebase
+                            database.ref('riders').set(newRiders);
+                            database.ref('rooms').set(newRooms);
+
                             setLastResult({ rider: currentRider, room: selected.name });
                             setCurrentRider('');
                             setSpinning(false);
-
-                            storage.set('riders', newRiders);
-                            storage.set('rooms', newRooms);
                         }, 500);
                     }
                 }, 100);
@@ -101,13 +138,26 @@
 
             const reset = () => {
                 const newRiders = Array.from({ length: 27 }, (_, i) => 'Rider ' + (i + 1));
-                const newRooms = { single: { total: 3, allocated: [] }, double: { total: 7, allocated: [] }, five: { total: 2, allocated: [] } };
-                setRiders(newRiders);
-                setRooms(newRooms);
+                const newRooms = { 
+                    single: { total: 3, allocated: [] }, 
+                    double: { total: 7, allocated: [] }, 
+                    five: { total: 2, allocated: [] } 
+                };
+                
+                // Update Firebase
+                database.ref('riders').set(newRiders);
+                database.ref('rooms').set(newRooms);
+                
                 setCurrentRider('');
                 setLastResult(null);
-                storage.set('riders', newRiders);
-                storage.set('rooms', newRooms);
+            };
+
+            const updateRiderName = (index, newName) => {
+                if (newName.trim()) {
+                    const newRiders = [...riders];
+                    newRiders[index] = newName.trim();
+                    database.ref('riders').set(newRiders);
+                }
             };
 
             const getVisible = () => {
@@ -157,4 +207,119 @@
                                         })
                                     ),
                                     React.createElement('div', { className: 'absolute top-0 left-1/2 -translate-x-1/2 -translate-y-4' },
-                                        React.createElement('div', { className: 'w-0 h-0 border-l-[20px] border-r-[20px] border-t-[30px] border-l-transparent
+                                        React.createElement('div', { className: 'w-0 h-0 border-l-[20px] border-r-[20px] border-t-[30px] border-l-transparent border-r-transparent border-t-yellow-400' })
+                                    )
+                                ),
+                                currentRider && React.createElement('div', { className: 'text-center mb-4' },
+                                    React.createElement('p', { className: 'text-xl font-bold text-white' }, 'Now spinning for:'),
+                                    React.createElement('p', { className: 'text-3xl font-bold text-yellow-300' }, currentRider)
+                                ),
+                                !currentRider && !lastResult && riders.length > 0 && React.createElement('div', { className: 'text-center mb-4' },
+                                    React.createElement('p', { className: 'text-xl font-bold text-blue-200' }, 'Select a rider to spin')
+                                ),
+                                lastResult && !spinning && React.createElement('div', { className: 'text-center mb-4 bg-green-500/20 border-2 border-green-400 rounded-lg p-4' },
+                                    React.createElement('p', { className: 'text-2xl font-bold text-green-300' }, '🎉 Congratulations! 🎉'),
+                                    React.createElement('p', { className: 'text-xl text-white mt-2' },
+                                        React.createElement('span', { className: 'font-bold text-yellow-300' }, lastResult.rider)
+                                    ),
+                                    React.createElement('p', { className: 'text-lg text-white' }, 'You got a'),
+                                    React.createElement('p', { className: 'text-3xl font-bold text-green-300' }, lastResult.room)
+                                ),
+                                React.createElement('div', { className: 'flex gap-3 justify-center' },
+                                    React.createElement('button', { onClick: spin, disabled: spinning || !currentRider, className: 'px-8 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed' },
+                                        spinning ? 'Spinning...' : 'SPIN!'
+                                    )
+                                ),
+                                React.createElement('div', { className: 'mt-6 text-white text-center' },
+                                    React.createElement('p', { className: 'text-sm' }, 'Riders remaining: ',
+                                        React.createElement('span', { className: 'font-bold text-yellow-300' }, riders.length)
+                                    )
+                                )
+                            ),
+                            React.createElement('div', { className: 'bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-2xl border border-white/20' },
+                                React.createElement('h3', { className: 'text-xl font-bold text-white mb-4' }, 'Select Rider (' + riders.length + ' remaining)'),
+                                React.createElement('div', { className: 'grid grid-cols-3 gap-2 max-h-96 overflow-y-auto' },
+                                    riders.map((rider, i) =>
+                                        React.createElement('button', {
+                                            key: i,
+                                            onClick: () => setCurrentRider(rider),
+                                            className: 'px-2 py-2 text-sm rounded font-medium ' + (currentRider === rider ? 'bg-yellow-400 text-black ring-2 ring-yellow-300' : 'bg-blue-500/30 text-white hover:bg-blue-500/50')
+                                        }, rider)
+                                    )
+                                )
+                            )
+                        ),
+                        React.createElement('div', { className: 'fixed bottom-4 right-4' },
+                            React.createElement('button', { onClick: () => setIsAdmin(true), className: 'p-3 bg-gray-700/50 text-white rounded-full' }, '🔒')
+                        )
+                    ),
+                    isAdmin && password === '' && React.createElement('div', { className: 'fixed inset-0 bg-black/50 flex items-center justify-center z-50' },
+                        React.createElement('div', { className: 'bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20' },
+                            React.createElement('h2', { className: 'text-2xl font-bold text-white mb-4' }, 'Admin Login'),
+                            React.createElement('input', { type: 'password', value: password, onChange: (e) => setPassword(e.target.value), onKeyPress: (e) => e.key === 'Enter' && login(), placeholder: 'Password', autoFocus: true, className: 'w-full px-4 py-2 bg-white/20 text-white rounded-lg mb-4' }),
+                            React.createElement('div', { className: 'flex gap-3' },
+                                React.createElement('button', { onClick: login, className: 'flex-1 px-6 py-2 bg-blue-500 text-white font-bold rounded-lg' }, 'Login'),
+                                React.createElement('button', { onClick: () => { setIsAdmin(false); setPassword(''); }, className: 'px-6 py-2 bg-gray-500 text-white rounded-lg' }, 'Cancel')
+                            )
+                        )
+                    )
+                );
+            }
+
+            return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6' },
+                React.createElement('div', { className: 'max-w-6xl mx-auto' },
+                    React.createElement('div', { className: 'flex justify-between items-center mb-8' },
+                        React.createElement('h1', { className: 'text-3xl font-bold text-white' }, 'Admin Panel'),
+                        React.createElement('button', { onClick: () => setIsAdmin(false), className: 'px-4 py-2 bg-red-500 text-white rounded-lg' }, 'Logout')
+                    ),
+                    React.createElement('div', { className: 'grid lg:grid-cols-2 gap-6' },
+                        React.createElement('div', { className: 'bg-white/10 rounded-2xl p-6 border border-white/20' },
+                            React.createElement('h3', { className: 'text-xl font-bold text-white mb-4' }, 'Manage Riders'),
+                            React.createElement('div', { className: 'grid grid-cols-3 gap-2 mb-4 max-h-96 overflow-y-auto' },
+                                riders.map((rider, i) =>
+                                    React.createElement('input', { 
+                                        key: i, 
+                                        type: 'text', 
+                                        value: rider, 
+                                        onChange: (e) => updateRiderName(i, e.target.value),
+                                        className: 'px-2 py-1 bg-blue-500/30 text-white text-sm rounded' 
+                                    })
+                                )
+                            ),
+                            React.createElement('button', { onClick: reset, className: 'w-full px-6 py-3 bg-red-500 text-white font-bold rounded-lg' }, 'Reset Everything')
+                        ),
+                        React.createElement('div', { className: 'bg-white/10 rounded-2xl p-6 border border-white/20' },
+                            React.createElement('h3', { className: 'text-xl font-bold text-white mb-4' }, 'Room Allocation'),
+                            React.createElement('div', { className: 'space-y-3' },
+                                React.createElement('div', { className: 'bg-purple-500/20 p-3 rounded-lg' },
+                                    React.createElement('div', { className: 'flex justify-between text-white mb-2' },
+                                        React.createElement('span', null, '🏠 Private Suite'),
+                                        React.createElement('span', null, rooms.single.allocated.length + '/' + rooms.single.total)
+                                    ),
+                                    React.createElement('div', { className: 'text-xs text-purple-100' }, rooms.single.allocated.join(', ') || 'None yet')
+                                ),
+                                React.createElement('div', { className: 'bg-blue-500/20 p-3 rounded-lg' },
+                                    React.createElement('div', { className: 'flex justify-between text-white mb-2' },
+                                        React.createElement('span', null, '🏢 Apartment'),
+                                        React.createElement('span', null, rooms.double.allocated.length + '/' + (rooms.double.total * 2))
+                                    ),
+                                    React.createElement('div', { className: 'text-xs text-blue-100' }, rooms.double.allocated.join(', ') || 'None yet')
+                                ),
+                                React.createElement('div', { className: 'bg-orange-500/20 p-3 rounded-lg' },
+                                    React.createElement('div', { className: 'flex justify-between text-white mb-2' },
+                                        React.createElement('span', null, '🏡 Villa'),
+                                        React.createElement('span', null, rooms.five.allocated.length + '/' + (rooms.five.total * 5))
+                                    ),
+                                    React.createElement('div', { className: 'text-xs text-orange-100' }, rooms.five.allocated.join(', ') || 'None yet')
+                                )
+                            )
+                        )
+                    )
+                )
+            );
+        }
+
+        createRoot(document.getElementById('root')).render(React.createElement(App));
+    </script>
+</body>
+</html>

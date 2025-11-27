@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chennai Renegades - Room Allocation</title>
+    <title>Chennai Renegades - Room Allocation v2.0</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -172,8 +172,9 @@
             };
 
             console.log('Current view:', view);
-            console.log('Riders:', riders.length);
-            console.log('Rooms:', rooms);
+            console.log('Riders array:', riders);
+            console.log('Riders is array?', Array.isArray(riders));
+            console.log('Riders length:', riders ? riders.length : 'undefined');
 
             // LOGIN VIEW
             if (view === 'login') {

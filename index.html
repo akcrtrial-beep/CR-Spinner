@@ -171,6 +171,8 @@
                 return [prev, currentIndex, next];
             };
 
+            console.log('Current view:', view);
+
             // LOGIN VIEW
             if (view === 'login') {
                 return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 flex items-center justify-center' },
@@ -322,7 +324,14 @@
                         )
                     ),
                     React.createElement('div', { className: 'fixed bottom-4 right-4' },
-                        React.createElement('button', { onClick: () => setView('login'), className: 'p-3 bg-gray-700/50 hover:bg-gray-600/50 text-white rounded-full shadow-lg' }, '🔒')
+                        React.createElement('button', { 
+                            onClick: () => {
+                                alert('Lock button clicked! View is: ' + view);
+                                setView('login');
+                                alert('View changed to: login');
+                            }, 
+                            className: 'p-3 bg-gray-700/50 hover:bg-gray-600/50 text-white rounded-full shadow-lg' 
+                        }, '🔒')
                     )
                 )
             );

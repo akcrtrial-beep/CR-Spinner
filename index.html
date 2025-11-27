@@ -6,51 +6,36 @@
     <title>Chennai Renegades - Room Allocation</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    </style>
 </head>
 <body>
     <div id="root"></div>
-    <script type="text/babel">
+    
+    <script>
         const { useState, useEffect } = React;
+        const { createRoot } = ReactDOM;
 
-        window.storage = {
-            get: async (key, shared = false) => {
-                const value = localStorage.getItem(shared ? `shared_${key}` : key);
-                return value ? { key, value, shared } : null;
+        const storage = {
+            get: (key) => {
+                const val = localStorage.getItem('shared_' + key);
+                return val ? JSON.parse(val) : null;
             },
-            set: async (key, value, shared = false) => {
-                localStorage.setItem(shared ? `shared_${key}` : key, value);
-                return { key, value, shared };
+            set: (key, value) => {
+                localStorage.setItem('shared_' + key, JSON.stringify(value));
             }
         };
 
-        const Users = ({ className }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
-        );
-
-        const Lock = ({ className }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-        );
-
-        const LogOut = ({ className }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-        );
-
-        function RoomAllocationCarousel() {
-            const [isAdmin, setIsAdmin] = useState(false);
-            const [password, setPassword] = useState('');
+        function App() {
             const [riders, setRiders] = useState([]);
             const [currentRider, setCurrentRider] = useState('');
             const [spinning, setSpinning] = useState(false);
             const [currentIndex, setCurrentIndex] = useState(1);
             const [lastResult, setLastResult] = useState(null);
+            const [isAdmin, setIsAdmin] = useState(false);
+            const [password, setPassword] = useState('');
             const [rooms, setRooms] = useState({
                 single: { total: 3, allocated: [] },
                 double: { total: 7, allocated: [] },
@@ -58,57 +43,34 @@
             });
 
             useEffect(() => {
-                loadData();
+                const saved = storage.get('riders') || Array.from({ length: 27 }, (_, i) => 'Rider ' + (i + 1));
+                const savedRooms = storage.get('rooms');
+                setRiders(saved);
+                if (savedRooms) setRooms(savedRooms);
             }, []);
 
-            const loadData = async () => {
-                const r = await window.storage.get('riders', true);
-                const rm = await window.storage.get('rooms', true);
-                setRiders(r ? JSON.parse(r.value) : Array.from({ length: 27 }, (_, i) => `Rider ${i + 1}`));
-                if (rm) setRooms(JSON.parse(rm.value));
-            };
-
-            const saveData = async (data) => {
-                if (data.riders) await window.storage.set('riders', JSON.stringify(data.riders), true);
-                if (data.rooms) await window.storage.set('rooms', JSON.stringify(data.rooms), true);
-            };
-
             const roomTypes = [
-                { name: 'Private Suite', type: 'Single Bed', color: 'from-purple-500 to-purple-700', icon: '🏠' },
-                { name: 'Apartment', type: 'Double Bed', color: 'from-blue-500 to-blue-700', icon: '🏢' },
-                { name: 'Villa', type: '5 Bed', color: 'from-orange-500 to-orange-700', icon: '🏡' }
+                { name: 'Private Suite', type: 'single', color: 'from-purple-500 to-purple-700', icon: '🏠', capacity: 1 },
+                { name: 'Apartment', type: 'double', color: 'from-blue-500 to-blue-700', icon: '🏢', capacity: 2 },
+                { name: 'Villa', type: 'five', color: 'from-orange-500 to-orange-700', icon: '🏡', capacity: 5 }
             ];
 
-            const handleLogin = () => {
-                if (password === 'Ananth,@2025#') {
-                    setIsAdmin(true);
-                    setPassword('');
-                } else {
-                    alert('Incorrect password');
-                    setPassword('');
-                }
-            };
-
-            const spinCarousel = () => {
+            const spin = () => {
                 if (!currentRider || spinning) return;
 
-                const canS = rooms.single.allocated.length < rooms.single.total;
-                const canD = rooms.double.allocated.length < rooms.double.total * 2;
-                const canF = rooms.five.allocated.length < rooms.five.total * 5;
+                const available = [];
+                if (rooms.single.allocated.length < rooms.single.total) available.push(0);
+                if (rooms.double.allocated.length < rooms.double.total * 2) available.push(1);
+                if (rooms.five.allocated.length < rooms.five.total * 5) available.push(2);
 
-                if (!canS && !canD && !canF) return;
+                if (available.length === 0) return;
 
                 setSpinning(true);
                 setLastResult(null);
 
-                const avail = [];
-                if (canS) avail.push(0);
-                if (canD) avail.push(1);
-                if (canF) avail.push(2);
-
-                const target = avail[Math.floor(Math.random() * avail.length)];
-                const spins = 15 + Math.floor(Math.random() * 10);
+                const target = available[Math.floor(Math.random() * available.length)];
                 let count = 0;
+                const spins = 15 + Math.floor(Math.random() * 10);
 
                 const interval = setInterval(() => {
                     setCurrentIndex(p => (p + 1) % 3);
@@ -118,44 +80,34 @@
                         clearInterval(interval);
                         setCurrentIndex(target);
 
-                        setTimeout(async () => {
-                            const sel = roomTypes[target];
-                            const newR = riders.filter(r => r !== currentRider);
-                            const newRm = { ...rooms };
+                        setTimeout(() => {
+                            const selected = roomTypes[target];
+                            const newRiders = riders.filter(r => r !== currentRider);
+                            const newRooms = { ...rooms };
+                            newRooms[selected.type].allocated.push(currentRider);
 
-                            if (sel.type === 'Single Bed') newRm.single.allocated.push(currentRider);
-                            else if (sel.type === 'Double Bed') newRm.double.allocated.push(currentRider);
-                            else newRm.five.allocated.push(currentRider);
-
-                            setRiders(newR);
-                            setRooms(newRm);
-                            setLastResult({ rider: currentRider, room: sel.name });
+                            setRiders(newRiders);
+                            setRooms(newRooms);
+                            setLastResult({ rider: currentRider, room: selected.name });
                             setCurrentRider('');
                             setSpinning(false);
 
-                            await saveData({ riders: newR, rooms: newRm });
+                            storage.set('riders', newRiders);
+                            storage.set('rooms', newRooms);
                         }, 500);
                     }
                 }, 100);
             };
 
-            const reset = async () => {
-                const newR = Array.from({ length: 27 }, (_, i) => `Rider ${i + 1}`);
-                const newRm = { single: { total: 3, allocated: [] }, double: { total: 7, allocated: [] }, five: { total: 2, allocated: [] } };
-                setRiders(newR);
-                setRooms(newRm);
+            const reset = () => {
+                const newRiders = Array.from({ length: 27 }, (_, i) => 'Rider ' + (i + 1));
+                const newRooms = { single: { total: 3, allocated: [] }, double: { total: 7, allocated: [] }, five: { total: 2, allocated: [] } };
+                setRiders(newRiders);
+                setRooms(newRooms);
                 setCurrentRider('');
-                setCurrentIndex(1);
                 setLastResult(null);
-                await saveData({ riders: newR, rooms: newRm });
-            };
-
-            const editName = (old, newN) => {
-                if (newN.trim()) {
-                    const newR = riders.map(r => r === old ? newN : r);
-                    setRiders(newR);
-                    saveData({ riders: newR });
-                }
+                storage.set('riders', newRiders);
+                storage.set('rooms', newRooms);
             };
 
             const getVisible = () => {
@@ -164,175 +116,45 @@
                 return [prev, currentIndex, next];
             };
 
-            return (
-                <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6">
-                    {!isAdmin ? (
-                        <div className="max-w-6xl mx-auto">
-                            <div className="text-center mb-8">
-                                <div className="flex items-center justify-center gap-4 mb-4">
-                                    <img src="https://chennairenegades.com/wp-content/uploads/2025/11/logo.jpg" alt="Chennai Renegades" className="w-24 h-24 rounded-full border-4 border-yellow-400 shadow-lg object-cover" />
-                                    <div>
-                                        <h1 className="text-4xl font-bold text-yellow-400 mb-1">Chennai Renegades</h1>
-                                        <p className="text-2xl font-bold text-white">Hello Boys, Let's go for a spin!!!!</p>
-                                    </div>
-                                </div>
-                            </div>
+            const login = () => {
+                if (password === 'Ananth,@2025#') {
+                    setIsAdmin(true);
+                    setPassword('');
+                } else {
+                    alert('Incorrect password');
+                    setPassword('');
+                }
+            };
 
-                            <div className="grid lg:grid-cols-2 gap-6">
-                                <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-2xl border border-white/20">
-                                    <div className="relative mb-6">
-                                        <div className="overflow-hidden">
-                                            <div className="flex items-center justify-center gap-4 py-8">
-                                                {getVisible().map((idx, pos) => {
-                                                    const room = roomTypes[idx];
-                                                    const isCenter = pos === 1;
-                                                    return (
-                                                        <div key={idx} className={`transition-all duration-300 ${isCenter ? 'scale-110 opacity-100 z-10' : 'scale-75 opacity-40'}`}>
-                                                            <div className={`bg-gradient-to-br ${room.color} rounded-2xl p-8 shadow-2xl border-4 border-white min-w-[200px]`}>
-                                                                <div className="text-center">
-                                                                    <div className="text-7xl mb-4">{room.icon}</div>
-                                                                    <h3 className="text-2xl font-bold text-white mb-2">{room.name}</h3>
-                                                                    <div className="text-sm text-white/80">
-                                                                        {room.type === 'Single Bed' && '1 Person'}
-                                                                        {room.type === 'Double Bed' && '2 Persons'}
-                                                                        {room.type === '5 Bed' && '5 Persons'}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-4 z-20">
-                                            <div className="w-0 h-0 border-l-[20px] border-r-[20px] border-t-[30px] border-l-transparent border-r-transparent border-t-yellow-400"></div>
-                                        </div>
-                                    </div>
-
-                                    {currentRider && (
-                                        <div className="text-center mb-4">
-                                            <p className="text-xl font-bold text-white">Now spinning for:</p>
-                                            <p className="text-3xl font-bold text-yellow-300">{currentRider}</p>
-                                        </div>
-                                    )}
-
-                                    {!currentRider && riders.length > 0 && !lastResult && (
-                                        <div className="text-center mb-4">
-                                            <p className="text-xl font-bold text-blue-200">Select a rider to spin</p>
-                                        </div>
-                                    )}
-
-                                    {lastResult && !spinning && (
-                                        <div className="text-center mb-4 bg-green-500/20 border-2 border-green-400 rounded-lg p-4">
-                                            <p className="text-2xl font-bold text-green-300">🎉 Congratulations! 🎉</p>
-                                            <p className="text-xl text-white mt-2">
-                                                <span className="font-bold text-yellow-300">{lastResult.rider}</span>
-                                            </p>
-                                            <p className="text-lg text-white">You got a</p>
-                                            <p className="text-3xl font-bold text-green-300">{lastResult.room}</p>
-                                        </div>
-                                    )}
-
-                                    <div className="flex gap-3 justify-center">
-                                        <button onClick={spinCarousel} disabled={spinning || !currentRider} className="px-8 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-xl transform hover:scale-105 transition-all">
-                                            {spinning ? 'Spinning...' : 'SPIN!'}
-                                        </button>
-                                    </div>
-
-                                    <div className="mt-6 text-white text-center">
-                                        <p className="text-sm">Riders remaining: <span className="font-bold text-yellow-300">{riders.length}</span></p>
-                                    </div>
-                                </div>
-
-                                <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-2xl border border-white/20">
-                                    <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                                        <Users className="w-6 h-6" />
-                                        Select Rider ({riders.length} remaining)
-                                    </h3>
-                                    <div className="grid grid-cols-3 gap-2 max-h-96 overflow-y-auto">
-                                        {riders.map((rider, i) => (
-                                            <button key={i} onClick={() => setCurrentRider(rider)} className={`px-2 py-2 text-sm rounded font-medium transition-all ${currentRider === rider ? 'bg-yellow-400 text-black ring-2 ring-yellow-300' : 'bg-blue-500/30 text-white hover:bg-blue-500/50 border border-blue-300/50'}`}>
-                                                {rider}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="fixed bottom-4 right-4">
-                                <button onClick={() => setIsAdmin(true)} className="p-3 bg-gray-700/50 hover:bg-gray-600/50 text-white rounded-full">
-                                    <Lock className="w-5 h-5" />
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="max-w-6xl mx-auto">
-                            <div className="flex justify-between items-center mb-8">
-                                <h1 className="text-3xl font-bold text-white">Admin Panel</h1>
-                                <button onClick={() => setIsAdmin(false)} className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg">
-                                    <LogOut className="w-5 h-5" />
-                                    Logout
-                                </button>
-                            </div>
-
-                            <div className="grid lg:grid-cols-2 gap-6">
-                                <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-2xl border border-white/20">
-                                    <h3 className="text-xl font-bold text-white mb-4">Manage Riders</h3>
-                                    <div className="grid grid-cols-3 gap-2 max-h-96 overflow-y-auto mb-4">
-                                        {riders.map((rider, i) => (
-                                            <input key={i} type="text" value={rider} onChange={(e) => editName(rider, e.target.value)} className="px-2 py-1 bg-blue-500/30 text-white text-sm rounded border border-blue-300/50" />
-                                        ))}
-                                    </div>
-                                    <button onClick={reset} className="w-full px-6 py-3 bg-red-500 text-white font-bold rounded-lg">Reset Everything</button>
-                                </div>
-
-                                <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-2xl border border-white/20">
-                                    <h3 className="text-xl font-bold text-white mb-4">Room Allocation</h3>
-                                    <div className="space-y-3">
-                                        <div className="bg-purple-500/20 p-3 rounded-lg border border-purple-400/30">
-                                            <div className="flex justify-between mb-2">
-                                                <span className="text-white font-semibold">🏠 Private Suite</span>
-                                                <span className="text-purple-200">{rooms.single.allocated.length}/{rooms.single.total}</span>
-                                            </div>
-                                            <div className="text-xs text-purple-100">{rooms.single.allocated.join(', ') || 'None yet'}</div>
-                                        </div>
-                                        <div className="bg-blue-500/20 p-3 rounded-lg border border-blue-400/30">
-                                            <div className="flex justify-between mb-2">
-                                                <span className="text-white font-semibold">🏢 Apartment</span>
-                                                <span className="text-blue-200">{rooms.double.allocated.length}/{rooms.double.total * 2}</span>
-                                            </div>
-                                            <div className="text-xs text-blue-100">{rooms.double.allocated.join(', ') || 'None yet'}</div>
-                                        </div>
-                                        <div className="bg-orange-500/20 p-3 rounded-lg border border-orange-400/30">
-                                            <div className="flex justify-between mb-2">
-                                                <span className="text-white font-semibold">🏡 Villa</span>
-                                                <span className="text-orange-200">{rooms.five.allocated.length}/{rooms.five.total * 5}</span>
-                                            </div>
-                                            <div className="text-xs text-orange-100">{rooms.five.allocated.join(', ') || 'None yet'}</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {isAdmin && !password && password === '' && (
-                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                            <div className="bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20">
-                                <h2 className="text-2xl font-bold text-white mb-4">Admin Login</h2>
-                                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleLogin()} placeholder="Password" autoFocus className="w-full px-4 py-2 bg-white/20 text-white rounded-lg border border-white/30 mb-4" />
-                                <div className="flex gap-3">
-                                    <button onClick={handleLogin} className="flex-1 px-6 py-2 bg-blue-500 text-white font-bold rounded-lg">Login</button>
-                                    <button onClick={() => { setIsAdmin(false); setPassword(''); }} className="px-6 py-2 bg-gray-500 text-white rounded-lg">Cancel</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            );
-        }
-
-        ReactDOM.createRoot(document.getElementById('root')).render(<RoomAllocationCarousel />);
-    </script>
-</body>
-</html>
+            if (!isAdmin) {
+                return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6' },
+                    React.createElement('div', { className: 'max-w-6xl mx-auto' },
+                        React.createElement('div', { className: 'text-center mb-8' },
+                            React.createElement('div', { className: 'flex items-center justify-center gap-4 mb-4' },
+                                React.createElement('img', { src: 'https://chennairenegades.com/wp-content/uploads/2025/11/logo.jpg', alt: 'Chennai Renegades', className: 'w-24 h-24 rounded-full border-4 border-yellow-400 shadow-lg' }),
+                                React.createElement('div', null,
+                                    React.createElement('h1', { className: 'text-4xl font-bold text-yellow-400 mb-1' }, 'Chennai Renegades'),
+                                    React.createElement('p', { className: 'text-2xl font-bold text-white' }, 'Hello Boys, Let\'s go for a spin!!!!')
+                                )
+                            )
+                        ),
+                        React.createElement('div', { className: 'grid lg:grid-cols-2 gap-6' },
+                            React.createElement('div', { className: 'bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-2xl border border-white/20' },
+                                React.createElement('div', { className: 'relative mb-6' },
+                                    React.createElement('div', { className: 'flex items-center justify-center gap-4 py-8' },
+                                        getVisible().map((idx, pos) => {
+                                            const room = roomTypes[idx];
+                                            const isCenter = pos === 1;
+                                            return React.createElement('div', { key: idx, className: 'transition-all duration-300 ' + (isCenter ? 'scale-110 opacity-100' : 'scale-75 opacity-40') },
+                                                React.createElement('div', { className: 'bg-gradient-to-br ' + room.color + ' rounded-2xl p-8 shadow-2xl border-4 border-white min-w-[200px]' },
+                                                    React.createElement('div', { className: 'text-center' },
+                                                        React.createElement('div', { className: 'text-7xl mb-4' }, room.icon),
+                                                        React.createElement('h3', { className: 'text-2xl font-bold text-white mb-2' }, room.name),
+                                                        React.createElement('div', { className: 'text-sm text-white/80' }, room.capacity + (room.capacity > 1 ? ' Persons' : ' Person'))
+                                                    )
+                                                )
+                                            );
+                                        })
+                                    ),
+                                    React.createElement('div', { className: 'absolute top-0 left-1/2 -translate-x-1/2 -translate-y-4' },
+                                        React.createElement('div', { className: 'w-0 h-0 border-l-[20px] border-r-[20px] border-t-[30px] border-l-transparent

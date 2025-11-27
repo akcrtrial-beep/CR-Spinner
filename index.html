@@ -172,6 +172,8 @@
             };
 
             console.log('Current view:', view);
+            console.log('Riders:', riders.length);
+            console.log('Rooms:', rooms);
 
             // LOGIN VIEW
             if (view === 'login') {
@@ -197,6 +199,12 @@
 
             // ADMIN VIEW
             if (view === 'admin') {
+                if (!riders || riders.length === 0) {
+                    return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 flex items-center justify-center' },
+                        React.createElement('div', { className: 'text-white text-2xl' }, 'Loading admin panel...')
+                    );
+                }
+                
                 return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6' },
                     React.createElement('div', { className: 'max-w-6xl mx-auto' },
                         React.createElement('div', { className: 'flex justify-between items-center mb-8' },
@@ -325,11 +333,7 @@
                     ),
                     React.createElement('div', { className: 'fixed bottom-4 right-4' },
                         React.createElement('button', { 
-                            onClick: () => {
-                                alert('Lock button clicked! View is: ' + view);
-                                setView('login');
-                                alert('View changed to: login');
-                            }, 
+                            onClick: () => setView('login'), 
                             className: 'p-3 bg-gray-700/50 hover:bg-gray-600/50 text-white rounded-full shadow-lg' 
                         }, '🔒')
                     )

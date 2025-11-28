@@ -35,7 +35,7 @@
         const { createRoot } = ReactDOM;
 
         function App() {
-            const [view, setView] = useState('rider'); // 'rider', 'login', or 'admin'
+            const [view, setView] = useState('rider');
             const [password, setPassword] = useState('');
             const [riders, setRiders] = useState([]);
             const [currentRider, setCurrentRider] = useState('');
@@ -171,11 +171,6 @@
                 return [prev, currentIndex, next];
             };
 
-            console.log('Current view:', view);
-            console.log('Riders array:', riders);
-            console.log('Riders is array?', Array.isArray(riders));
-            console.log('Riders length:', riders ? riders.length : 'undefined');
-
             // LOGIN VIEW
             if (view === 'login') {
                 return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 flex items-center justify-center' },
@@ -200,9 +195,17 @@
 
             // ADMIN VIEW
             if (view === 'admin') {
-                if (!riders || riders.length === 0) {
+                if (!riders || !Array.isArray(riders) || riders.length === 0) {
                     return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 flex items-center justify-center' },
-                        React.createElement('div', { className: 'text-white text-2xl' }, 'Loading admin panel...')
+                        React.createElement('div', { className: 'bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20' },
+                            React.createElement('div', { className: 'text-white text-2xl mb-4' }, 'Loading admin panel...'),
+                            React.createElement('div', { className: 'flex gap-3' },
+                                React.createElement('button', { 
+                                    onClick: () => setView('rider'), 
+                                    className: 'px-6 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg' 
+                                }, 'Back to Rider View')
+                            )
+                        )
                     );
                 }
                 
@@ -216,15 +219,15 @@
                             React.createElement('div', { className: 'bg-white/10 rounded-2xl p-6 border border-white/20' },
                                 React.createElement('h3', { className: 'text-xl font-bold text-white mb-4' }, 'Manage Riders'),
                                 React.createElement('div', { className: 'grid grid-cols-3 gap-2 mb-4 max-h-96 overflow-y-auto' },
-                                    riders.map((rider, i) =>
+                                    Array.isArray(riders) && riders.length > 0 ? riders.map((rider, i) =>
                                         React.createElement('input', { 
                                             key: i, 
                                             type: 'text', 
-                                            value: rider, 
+                                            value: rider || '', 
                                             onChange: (e) => updateRiderName(i, e.target.value),
                                             className: 'px-2 py-1 bg-blue-500/30 text-white text-sm rounded border border-blue-300/50' 
                                         })
-                                    )
+                                    ) : React.createElement('div', { className: 'col-span-3 text-white text-center' }, 'Loading riders...')
                                 ),
                                 React.createElement('button', { onClick: reset, className: 'w-full px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg' }, 'Reset Everything')
                             ),
@@ -322,13 +325,13 @@
                         React.createElement('div', { className: 'bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-2xl border border-white/20' },
                             React.createElement('h3', { className: 'text-xl font-bold text-white mb-4' }, 'Select Rider (' + riders.length + ' remaining)'),
                             React.createElement('div', { className: 'grid grid-cols-3 gap-2 max-h-96 overflow-y-auto' },
-                                riders.map((rider, i) =>
+                                Array.isArray(riders) && riders.length > 0 ? riders.map((rider, i) =>
                                     React.createElement('button', {
                                         key: i,
                                         onClick: () => setCurrentRider(rider),
                                         className: 'px-2 py-2 text-sm rounded font-medium transition-all ' + (currentRider === rider ? 'bg-yellow-400 text-black ring-2 ring-yellow-300 shadow-lg scale-105' : 'bg-blue-500/30 text-white hover:bg-blue-500/50 border border-blue-300/50')
                                     }, rider)
-                                )
+                                ) : React.createElement('div', { className: 'col-span-3 text-white text-center' }, 'Loading riders...')
                             )
                         )
                     ),
